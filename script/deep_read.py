@@ -109,6 +109,82 @@ def get_first_page(context):
     return context.new_page()
 
 
+def configure_context_page_timeout(context, timeout_ms: int = 3_000) -> None:
+    """为上下文内已有页面及后续新打开的页面设置默认超时，避免弹窗页沿用过长默认值。"""
+    def on_page(new_page):
+        new_page.set_default_timeout(timeout_ms)
+
+    context.on("page", on_page)
+    for page in list(context.pages):
+        try:
+            if not page.is_closed():
+                page.set_default_timeout(timeout_ms)
+        except PlaywrightError:
+            pass
+
+
+def iter_open_pages(context):
+    """遍历当前上下文中未关闭的页面（使用快照列表，避免迭代中结构变化）。"""
+    for page in list(context.pages):
+        try:
+            if page.is_closed():
+                continue
+        except PlaywrightError:
+            continue
+        yield page
+
+
+def ready_page_sort_key(page, target_url: str) -> tuple[int, ...]:
+    """多页同源时的排序键，元组越小越优先作为导出 HTML 的页面。"""
+    purl = page.url or ""
+    if not purl.startswith(("http://", "https://")):
+        # about:blank 等内部页靠后，避免误选空页。
+        return (2, 2, 2)
+
+    target_host = normalize_host(target_url)
+    current_host = normalize_host(purl)
+    same_host = target_host == current_host
+
+    tr = target_url.rstrip("/")
+    pr = purl.rstrip("/")
+    exact_match = tr == pr
+
+    t_path = urlparse(target_url).path or "/"
+    p_path = urlparse(purl).path or "/"
+    path_prefix = p_path.startswith(t_path) if len(t_path) > 1 else True
+
+    return (
+        0 if same_host else 1,
+        0 if exact_match else 1,
+        0 if path_prefix else 1,
+    )
+
+
+def pick_ready_page(context, target_url: str):
+    """在任意窗口中选取「已非登录页」的最佳页面；无则返回 None。"""
+    candidates: list = []
+    for page in iter_open_pages(context):
+        try:
+            if not is_login_page(page, target_url):
+                candidates.append(page)
+        except PlaywrightError:
+            continue
+    if not candidates:
+        return None
+    return min(candidates, key=lambda p: ready_page_sort_key(p, target_url))
+
+
+def tick_pages_domcontentloaded(context) -> None:
+    """对各打开页尽力等待 domcontentloaded，便于新开窗口尽快参与鉴权判断。"""
+    for page in iter_open_pages(context):
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=1_000)
+        except PlaywrightTimeoutError:
+            pass
+        except PlaywrightError:
+            pass
+
+
 def normalize_host(url: str) -> str:
     """标准化域名，去掉常见的 www. 前缀。"""
     host = urlparse(url).hostname or ""
@@ -191,9 +267,14 @@ def read_html_without_login(playwright, user_data_dir: Path, url: str) -> tuple[
     """先用无头模式读取页面；返回 (是否需要登录, HTML)。"""
     context = launch_edge_context(playwright, user_data_dir, headless=True)
     try:
+        configure_context_page_timeout(context)
         page = get_first_page(context)
-        page.set_default_timeout(3_000)
         navigate_and_wait(page, url)
+
+        ready = pick_ready_page(context, url)
+        if ready is not None:
+            return False, ready.content()
+
         if is_login_page(page, url):
             return True, None
         return False, page.content()
@@ -206,23 +287,21 @@ def read_html_after_manual_login(playwright, user_data_dir: Path, url: str, time
     eprint("检测到页面可能需要登录，已打开浏览器窗口。请在 1 分钟内完成登录鉴权。")
     context = launch_edge_context(playwright, user_data_dir, headless=False)
     try:
+        configure_context_page_timeout(context)
         page = get_first_page(context)
-        page.set_default_timeout(3_000)
         navigate_and_wait(page, url)
 
         deadline = time.monotonic() + timeout_seconds
         while time.monotonic() < deadline:
-            try:
-                page.wait_for_load_state("domcontentloaded", timeout=1_000)
-            except PlaywrightTimeoutError:
-                pass
+            tick_pages_domcontentloaded(context)
 
-            if not is_login_page(page, url):
+            ready = pick_ready_page(context, url)
+            if ready is not None:
                 try:
-                    page.wait_for_load_state("networkidle", timeout=5_000)
+                    ready.wait_for_load_state("networkidle", timeout=5_000)
                 except PlaywrightTimeoutError:
                     pass
-                return page.content()
+                return ready.content()
 
             time.sleep(1)
 

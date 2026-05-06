@@ -4,11 +4,20 @@
   
 # 使用方法
 ## 安装skill
-![alt text](image.png)
+![alt text](img/install.png)
 完成之后，需要重启你的cli工具
 ## 使用skill
 ### 阅读表网内容
+![alt text](img/read.png)
 
 ### 阅读深网内容
+skill会自动打开鉴权页面，需要手动输入身份信息
+![alt text](img/read-deep.png)
+
+### 页面超过1分钟没有获取到鉴权信息就会失败
+![alt text](img/auth-timeout.png)
 
 ### 执行你的个性化任务
+
+
+
