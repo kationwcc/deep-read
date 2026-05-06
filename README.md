@@ -18,6 +18,6 @@ skill会自动打开鉴权页面，需要手动输入身份信息
 ![alt text](img/auth-timeout.png)
 
 ### 执行你的个性化任务
-
+![alt text](img/read-deep-demo.png)
 
 
