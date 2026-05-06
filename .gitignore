@@ -1,0 +1,98 @@
+# ==========================================
+# Python 编译文件 / 缓存文件
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ==========================================
+# 依赖 / 包管理文件
+# ==========================================
+# pip 缓存
+pip-wheel-metadata/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Poetry 缓存
+.poetry/
+poetry.lock
+
+# Pipenv
+Pipfile.lock
+
+# ==========================================
+# 编辑器 / IDE 缓存文件
+# ==========================================
+# VS Code
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# ==========================================
+# 系统文件 / 垃圾文件
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==========================================
+# 日志 / 临时文件
+# ==========================================
+*.log
+logs/
+tmp/
+temp/
+temp.txt
+*.tmp
+
+# ==========================================
+# 测试 / 覆盖率报告
+# ==========================================
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+.nox/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# ==========================================
+# 环境变量 / 配置文件
+# ==========================================
+.env
+.env.*
+!.env.example
